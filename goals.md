@@ -7,10 +7,6 @@
     - Command functionalities such as change their username.
 
 
-- Broadcast event messages such as:
-    - A **user connecting** to the server.
-    - A **user leaving** the server.
-
 - Client ability to request information from the server, such as:
     - It's own identity (*eg. client id, name...*).
     - Other's identity.
