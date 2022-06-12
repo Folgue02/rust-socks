@@ -29,8 +29,8 @@ pub struct Client {
 }
 
 pub struct Server {
-    pub clients: HashMap<u128, Client>,
-    last_id: u128,
+    pub clients: HashMap<lnpkg::ClientId, Client>,
+    last_id: lnpkg::ClientId,
 }
 
 impl Server {
@@ -40,7 +40,7 @@ impl Server {
             last_id: 0,
         }
     }
-    pub fn add_client(&mut self, c: Client) -> u128 {
+    pub fn add_client(&mut self, c: Client) -> lnpkg::ClientId {
         self.last_id += 1;
         self.clients.insert(self.last_id, c);
         self.last_id
@@ -57,7 +57,7 @@ impl Server {
         }
         Ok(())
     }
-    pub fn send_msg(&mut self, client_id: &u128, msg: &[u8]) -> io::Result<usize> {
+    pub fn send_msg(&mut self, client_id: &lnpkg::ClientId, msg: &[u8]) -> io::Result<usize> {
         if !self.clients.contains_key(client_id) {
             return Err(io::Error::new(io::ErrorKind::AddrNotAvailable, ""));
         } else {
@@ -69,7 +69,7 @@ impl Server {
     /// represent a success parsing and execution of the client's input, or an `Err(ClientInputError)`
     pub fn handle_client_input(
         &mut self,
-        author_id: u128,
+        author_id: lnpkg::ClientId,
         msg: &[u8],
     ) -> Result<(), ClientInputError> {
         let msg = if let Ok(m) = String::from_utf8(msg.to_vec()) {
@@ -78,10 +78,9 @@ impl Server {
             return Err(ClientInputError::NonValidFormat);
         };
 
-        println!("comm_elements::Server::handle_client_input> Parsed message: {:?}", &msg);
-
         let parsed_message = lnpkg::LnPkg::from_string(msg);
 
+        // Return error if the type of the message its unknown
         if parsed_message.pkg_type == lnpkg::LnPkgType::Unknown {
             return Err(ClientInputError::NoMessageType);
         }
@@ -94,8 +93,6 @@ impl Server {
                 } else {
                     return Err(ClientInputError::NonValidFormat)
                 };
-                //println!("comm_elements::Server::handle_client_input> {}: {:?}", author_id, &parsed_message.content[&"msg".to_string()]);
-                //println!("comm_elements::Server::handle_client_input> {:?}", msg_templates::server::msg(author_id, client_message.clone())); 
                 self.broadcast_msg(
                     msg_templates::server::msg(author_id, client_message)
                         .as_bytes()
@@ -108,7 +105,7 @@ impl Server {
             lnpkg::LnPkgType::Command => {
                 todo!()
             }
-            lnpkg::LnPkgType::Unknown => return Err(ClientInputError::UnknownMessageType),
+            lnpkg::LnPkgType::Unknown | _ => return Err(ClientInputError::UnknownMessageType),
         };
 
         // Return ClientInputError depending on the result of the message handling
@@ -119,17 +116,34 @@ impl Server {
             Ok(())
         }
     }
+
+    pub fn disconnect_client(&mut self, client_id: lnpkg::ClientId) -> Option<()> { // TODO: Give this better error handling
+        if !self.clients.contains_key(&client_id) {
+            return None 
+        } else {
+            let _ = self.clients.remove_entry(&client_id);
+            return Some(())
+        }
+    }
 }
 
 /// Handles the incoming events from the client
 pub fn handle_client(server: Arc<Mutex<Server>>, mut client_stream: net::TcpStream) {
+
+    // Define the user
+    let client_name = String::from("Generic user name");
     let client_id = server.lock().unwrap().add_client(Client {
-        name: String::from("Generic User name"),
+        name: client_name.clone(),
         stream: client_stream.try_clone().unwrap(),
     });
-    let client_name = server.lock().unwrap().clients[&client_id].name.clone();
-    let mut buffer = vec![0; crate::BUFF_SIZE];
     println!("Thread started for client {}", client_id);
+    // Send identity msg
+    client_stream.write(msg_templates::server::identity(client_id, client_name.clone()).as_bytes().as_slice()).unwrap();
+    // Send event msg
+    server.lock().unwrap().broadcast_msg(msg_templates::server::event_client_connected(client_id, client_name.clone()).as_bytes().as_slice()).unwrap(); 
+
+    // Mainloop
+    let mut buffer = vec![0; crate::BUFF_SIZE];
     loop {
         if client_stream.read(&mut buffer).unwrap() == 0 {
             // Empty packet (Connection closed)
@@ -139,9 +153,18 @@ pub fn handle_client(server: Arc<Mutex<Server>>, mut client_stream: net::TcpStre
 
             // Remove NUL characters
             buffer = buffer.into_iter().filter(|c|  *c != 0).collect();
-            match server_guard.handle_client_input(client_id, &buffer) {
+            let result = server_guard.handle_client_input(client_id, &buffer);
+            drop(server_guard); // Avoid double locking 
+            match  result {
                 Ok(_) => (),
-                Err(e) => println!("Error when handling message: {:?}", e)
+                Err(e) => {
+                    println!("Error when handling message: {:?}", e); // BUG: Stuck here when disconnecting user
+                    let mut server_guard = server.lock().unwrap();
+                    server_guard.disconnect_client(client_id);
+                    server_guard.broadcast_msg(msg_templates::server::event_client_left(client_id, client_name).as_bytes().as_slice()).unwrap();
+                    println!("Client ({}) disconnected from the server.", client_id);
+                    break
+                }
             };
             buffer = vec![0; crate::BUFF_SIZE];
         }
