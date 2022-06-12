@@ -8,3 +8,4 @@ cd rust-socks/server
 cargo run
 ```
 
+[Goals set for the future](./goals.md)
