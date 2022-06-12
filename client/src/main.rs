@@ -19,6 +19,8 @@ fn main() {
         if server.read(&mut buffer).unwrap() == 0 {
             println!("Connection closed.");
             std::process::exit(1);
+        } else {
+            println!("Message received: {}", String::from_utf8(buffer).unwrap());
         }
     }
 }
