@@ -1,8 +1,9 @@
 use lnpkg;
 use std::collections::HashMap;
-pub type lpv = lnpkg::LnPkgValue; // LakenetPackageValue
-pub type lnp = lnpkg::LnPkg; // LakeNetPackage
-pub type lpty = lnpkg::LnPkgType;
+pub type lpv = lnpkg::LnPkgValue;   // LakenetPackageValue
+pub type lpty = lnpkg::LnPkgType;   // LakeNetPackageType
+pub type lnp = lnpkg::LnPkg;        // LakeNetPackage
+
 
 /// Message templates used by the client
 pub mod client {
@@ -31,6 +32,8 @@ pub mod server {
         println!("lnpkg::lib::server::msg> Parsed message {:?}", lnp::from_hashmap(hm.clone(), lpty::Message));
         lnp::from_hashmap(hm, lpty::Message)
     }
+
+    pub fn self_identity(client_id: u128)
 }
 
 /// Message templates used by both the server and client
