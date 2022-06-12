@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 use std::collections::HashMap;
+pub type ClientId = i128;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct LnPkg {
@@ -9,6 +10,15 @@ pub struct LnPkg {
 }
 
 impl LnPkg {
+
+    pub fn new(pkg_type: LnPkgType) -> Self {
+        Self {
+            pkg_type,
+            content: HashMap::new()
+        }
+    }
+
+
     pub fn from_string(pkg: String) -> Self {
         let mut hm: HashMap<String, LnPkgValue> = HashMap::new();
         let mut pkg_type = LnPkgType::Unknown;
@@ -89,16 +99,32 @@ impl LnPkg {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum LnPkgType {
-    Unknown,
+    /// Sent by server, contains the identity of the one who requested it
+    SelfIdentity,
+    /// Sent by server, contains the identity of whoever was specified, and gets returned to who
+    /// requested it. 
+    Identity,
+    /// Sent by the client, and the broadcasted by the server to the rest of the users
     Message,
+    /// Sent by the client (*tries to send a message to a certain user*) or the server (*resends a message to a user*)
     DirectMessage,
+    /// Sent by the client, represents command and parameters
     Command,
+
+    // ------------------------- EVENTS
+    /// Message sent by the server to communicate that a client has connected the server.
+    EventClientConnected,
+    /// Message sent by the server to communicate that a client has left the server.
+    EventClientLeft,
+
+    /// No message type or non existent
+    Unknown,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum LnPkgValue {
     String(String),
-    Int(i128),
+    Int(ClientId),
     Bool(bool),
     Null,
 }
@@ -111,6 +137,10 @@ impl LnPkgType {
             "msg" => Self::Message,
             "cmd" => Self::Command,
             "dmsg" => Self::DirectMessage,
+            "selfid" => Self::SelfIdentity,
+            "id" => Self::Identity,
+            "event-connection" => Self::EventClientConnected,
+            "event-left" => Self::EventClientLeft,
             _ => Self::Unknown,
         }
     }
@@ -125,6 +155,10 @@ impl std::fmt::Display for LnPkgType {
                 Self::Message => "msg",
                 Self::Command => "cmd",
                 Self::DirectMessage => "dmsg",
+                Self::SelfIdentity => "selfid",
+                Self::Identity => "id",
+                Self::EventClientConnected => "event-connection",
+                Self::EventClientLeft => "event-left",
                 Self::Unknown => "",
             }
         )
@@ -149,7 +183,7 @@ impl std::fmt::Display for LnPkgValue {
 impl LnPkgValue {
     pub fn from_string(target: String) -> LnPkgValue {
         let result;
-        if let Ok(int) = target.parse::<i128>() {
+        if let Ok(int) = target.parse::<ClientId>() {
             result = LnPkgValue::Int(int)
         } else if let Ok(boolean) = target.parse::<bool>() {
             result = LnPkgValue::Bool(boolean)
