@@ -1,4 +1,5 @@
 // TODO: Change the name of this file
+use msg_templates;
 use std::{
     collections::HashMap,
     io,
@@ -7,10 +8,18 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+
+#[derive(Debug)]
+/// Different errors that can occur when elements of the server interact between each other
 pub enum ClientInputError {
+    /// This variant appears when the message sent by a user has an invalid format
     NonValidFormat,
+    /// The lnpkg doesn't contain a type definition
     NoMessageType,
+    /// The lnpkg contains a message type identifier that cannot be recognized
     UnknownMessageType,
+    /// The user referenced doesn't exist 
+    /// (*eg. client `X` tried to send a direcct message to client `Y`, but `Y` doesn't exist*)
     UnknownUser,
 }
 
@@ -37,15 +46,16 @@ impl Server {
         self.last_id
     }
 
-    pub fn broadcast_msg(&mut self, msg: &[u8]) {
+    pub fn broadcast_msg(&mut self, msg: &[u8]) -> io::Result<()> {
         let mut i = self.clients.iter_mut();
         loop {
             if let Some(kp) = i.next() {
-                kp.1.stream.write(&msg).unwrap();
+                kp.1.stream.write(&msg)?;
             } else {
                 break;
             }
         }
+        Ok(())
     }
     pub fn send_msg(&mut self, client_id: &u128, msg: &[u8]) -> io::Result<usize> {
         if !self.clients.contains_key(client_id) {
@@ -59,16 +69,16 @@ impl Server {
     /// represent a success parsing and execution of the client's input, or an `Err(ClientInputError)`
     pub fn handle_client_input(
         &mut self,
-        author_ide: i128,
+        author_id: u128,
         msg: &[u8],
     ) -> Result<(), ClientInputError> {
-        // FIXME: I'm writing this code in the wrong way, I know it, but don't remember how to do it
-        // well, :/
         let msg = if let Ok(m) = String::from_utf8(msg.to_vec()) {
             m
         } else {
             return Err(ClientInputError::NonValidFormat);
         };
+
+        println!("comm_elements::Server::handle_client_input> Parsed message: {:?}", &msg);
 
         let parsed_message = lnpkg::LnPkg::from_string(msg);
 
@@ -76,24 +86,45 @@ impl Server {
             return Err(ClientInputError::NoMessageType);
         }
 
-        match parsed_message.pkg_type {
+
+        let result: io::Result<()> = match parsed_message.pkg_type {
             lnpkg::LnPkgType::Message => {
-                println!("Call message function and broadcast message")
+                let client_message = if let lnpkg::LnPkgValue::String(s) = parsed_message.content[&"msg".to_string()].clone() {
+                    s
+                } else {
+                    return Err(ClientInputError::NonValidFormat)
+                };
+                //println!("comm_elements::Server::handle_client_input> {}: {:?}", author_id, &parsed_message.content[&"msg".to_string()]);
+                //println!("comm_elements::Server::handle_client_input> {:?}", msg_templates::server::msg(author_id, client_message.clone())); 
+                self.broadcast_msg(
+                    msg_templates::server::msg(author_id, client_message)
+                        .as_bytes()
+                        .as_slice(),
+                ) 
             }
             lnpkg::LnPkgType::DirectMessage => {
-                println!("Call direct message function and send message to author")
+                todo!()
             }
             lnpkg::LnPkgType::Command => {
-                println!("Call command function and execute command")
+                todo!()
             }
             lnpkg::LnPkgType::Unknown => return Err(ClientInputError::UnknownMessageType),
+        };
+
+        // Return ClientInputError depending on the result of the message handling
+        if let Err(e) = result {
+            println!("{:?}", e);
+            Err(ClientInputError::NoMessageType) // TODO: Provide different errors depending on the situation
+        } else {
+            Ok(())
         }
     }
 }
 
+/// Handles the incoming events from the client
 pub fn handle_client(server: Arc<Mutex<Server>>, mut client_stream: net::TcpStream) {
     let client_id = server.lock().unwrap().add_client(Client {
-        name: String::from("User"),
+        name: String::from("Generic User name"),
         stream: client_stream.try_clone().unwrap(),
     });
     let client_name = server.lock().unwrap().clients[&client_id].name.clone();
@@ -101,21 +132,17 @@ pub fn handle_client(server: Arc<Mutex<Server>>, mut client_stream: net::TcpStre
     println!("Thread started for client {}", client_id);
     loop {
         if client_stream.read(&mut buffer).unwrap() == 0 {
+            // Empty packet (Connection closed)
             break;
         } else {
             let mut server_guard = server.lock().unwrap();
-            server_guard
-                .send_msg(&client_id, &buffer)
-                .expect("Cannot send message");
-            server_guard.broadcast_msg(
-                format!(
-                    "{}#{}: {}",
-                    client_id,
-                    client_name,
-                    String::from_utf8(buffer).unwrap()
-                )
-                .as_bytes(),
-            );
+
+            // Remove NUL characters
+            buffer = buffer.into_iter().filter(|c|  *c != 0).collect();
+            match server_guard.handle_client_input(client_id, &buffer) {
+                Ok(_) => (),
+                Err(e) => println!("Error when handling message: {:?}", e)
+            };
             buffer = vec![0; crate::BUFF_SIZE];
         }
     }

@@ -5,7 +5,6 @@ use std::thread;
 
 // Modules
 mod comm_elements;
-mod msg_templates;
 
 const SERVER_ADDR: &str = "127.0.0.1:8080";
 const BUFF_SIZE: usize = 1024;

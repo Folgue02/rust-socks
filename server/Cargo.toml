@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 lnpkg = { path = "../lnpkg"}
+msg_templates = { path = "../msg_templates" }
