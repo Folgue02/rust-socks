@@ -1,6 +1,6 @@
 # Goals  
 
-## Intercomunication between client and user
+## Intercommunication between client and user
 
 - **Commands** that the client can send:
     - Type of `lnpkg` to **represent the result** of receiving the command and acting according the message.
