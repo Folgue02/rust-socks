@@ -44,8 +44,8 @@ impl LnPkg {
         }
     }
     /// Returns an instance of `LnPkg` built with a hashmap
-    pub fn from_hashmap(target: HashMap<String, LnPkgValue>) -> Self {
-        let mut pkg_type = LnPkgType::Unknown;
+    pub fn from_hashmap(target: HashMap<String, LnPkgValue>, pkg_type: LnPkgType) -> Self {
+        let mut pkg_type = pkg_type; // Make it mutable
         let target = target
             .into_iter()
             .filter(|pair| {
@@ -80,6 +80,11 @@ impl LnPkg {
         }
         result
     }
+
+    /// Returns a vector of bytes
+    pub fn as_bytes(&self) -> Vec<u8> {
+        self.to_string().as_bytes().to_vec()
+    }
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -93,12 +98,13 @@ pub enum LnPkgType {
 #[derive(PartialEq, Debug, Clone)]
 pub enum LnPkgValue {
     String(String),
-    Int(i64),
+    Int(i128),
     Bool(bool),
     Null,
 }
 
 impl LnPkgType {
+    /// Returns a variant of the enum by parsing the string provided
     pub fn from_string(target: String) -> Self {
         let target = target.as_str();
         match target {
@@ -143,7 +149,7 @@ impl std::fmt::Display for LnPkgValue {
 impl LnPkgValue {
     pub fn from_string(target: String) -> LnPkgValue {
         let result;
-        if let Ok(int) = target.parse::<i64>() {
+        if let Ok(int) = target.parse::<i128>() {
             result = LnPkgValue::Int(int)
         } else if let Ok(boolean) = target.parse::<bool>() {
             result = LnPkgValue::Bool(boolean)
@@ -154,5 +160,9 @@ impl LnPkgValue {
             result = LnPkgValue::String(target);
         }
         result
+    }
+
+    pub fn to_string(&self) -> String {
+        format!("{}", self)
     }
 }
