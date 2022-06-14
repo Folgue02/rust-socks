@@ -18,7 +18,7 @@ impl LnPkg {
         }
     }
 
-
+    /// Parses a string and returns a `Self` instance.
     pub fn from_string(pkg: String) -> Self {
         let mut hm: HashMap<String, LnPkgValue> = HashMap::new();
         let mut pkg_type = LnPkgType::Unknown;
@@ -94,6 +94,20 @@ impl LnPkg {
     /// Returns a vector of bytes
     pub fn as_bytes(&self) -> Vec<u8> {
         self.to_string().as_bytes().to_vec()
+    }
+
+    /// Checks for the existance of `keys` inside of the LakeNetPackage, if all of them exist
+    /// this function will return `true`, if at least one of them doesn't exist in the `self.content`
+    /// hashmap, it will return `false`
+    pub fn exist(&self, keys: &[&str]) -> bool {
+        for k in keys {
+            if !self.content.contains_key(*k) {
+                return false
+            } else {
+                continue
+            }
+        }
+        true
     }
 }
 
