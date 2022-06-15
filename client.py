@@ -31,8 +31,12 @@ def sender(sock):
             print("Intentionally sending invalid packages...")
             sock.send(b"killmekillmekillme");
 
+        elif ui == "dm":
+            print("Sending direct message")
+            sock.send(b"type=dmsg:id=2:msg=This is a direct message:")
+
         else:
-            ui = f"type=msg:msg={ui}"
+            ui = f"type=msg:msg={ui}:"
             print(f"Sending message {ui} to user")
             sock.send(ui.encode("utf-8"))
 
