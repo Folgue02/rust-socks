@@ -1,7 +1,8 @@
 [package]
 name = "lnpkg"
-version = "0.1.0"
+version = "0.1.3"
 edition = "2021"
+description = "A module for storing short amounts of data with format in a string"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
