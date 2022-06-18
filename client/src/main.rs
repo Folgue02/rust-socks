@@ -3,6 +3,11 @@ use msg_templates;
 use std::io::{Read, Write};
 use std::{io, net, thread};
 
+mod command;
+mod syntax;
+#[cfg(test)]
+mod test; // TODO: Pass this to `/tests/` folder at the root of the project
+
 const SERVER: &str = "127.0.0.1:8080";
 const BUFF_SIZE: usize = 1024;
 
@@ -39,11 +44,21 @@ fn sender(mut server: net::TcpStream) {
     loop {
         let message = get_input("SEND ME> ");
 
-        println!("Unlocking guard");
-
-        match server.write(msg_templates::client::msg(message).as_bytes().as_slice()) {
-            Ok(_) => println!("Message sent"),
-            Err(e) => println!("Error: {:?}", e),
+        // Command
+        if message.starts_with(":") {
+            let input = syntax::Input::from_string(message[1..].to_string());
+            println!("SENDING RAW MESSAGE: {:?}", &input);
+            let template = msg_templates::client::command(input.command, input.arguments);
+            println!("SENDING COMMAND: {:?}", &template.to_string());
+            match server.write(template.as_bytes().as_slice()) {
+                Ok(_) => println!("Command sent"),
+                Err(e) => eprintln!("Error sending command: {:?}", e),
+            };
+        } else {
+            match server.write(msg_templates::client::msg(message).as_bytes().as_slice()) {
+                Ok(_) => println!("Messsage sent"),
+                Err(e) => eprintln!("Error occurred: {:?}", e),
+            }
         }
     }
 }
