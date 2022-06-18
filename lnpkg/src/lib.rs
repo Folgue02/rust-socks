@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod test;
 use std::collections::HashMap;
 pub type ClientId = i128;
 
@@ -10,16 +8,15 @@ pub struct LnPkg {
 }
 
 impl LnPkg {
-
     pub fn new(pkg_type: LnPkgType) -> Self {
         Self {
             pkg_type,
-            content: HashMap::new()
+            content: HashMap::new(),
         }
     }
 
     /// Parses a string and returns a `Self` instance.
-    pub fn from_string(pkg: String) -> Self {
+    pub fn from_string(pkg: &str) -> Self {
         let mut hm: HashMap<String, LnPkgValue> = HashMap::new();
         let mut pkg_type = LnPkgType::Unknown;
 
@@ -83,7 +80,7 @@ impl LnPkg {
     pub fn to_string(&self) -> String {
         let mut result = String::new();
         if self.pkg_type != LnPkgType::Unknown {
-            result += format!("type={}:", self.pkg_type).as_str(); //TODO HERE
+            result += format!("type={}:", self.pkg_type).as_str();
         }
         for (k, v) in &self.content {
             result += format!("{}={}:", k, v).as_str()
@@ -102,9 +99,9 @@ impl LnPkg {
     pub fn exist(&self, keys: &[&str]) -> bool {
         for k in keys {
             if !self.content.contains_key(*k) {
-                return false
+                return false;
             } else {
-                continue
+                continue;
             }
         }
         true
@@ -116,7 +113,7 @@ pub enum LnPkgType {
     /// Sent by server, contains the identity of the one who requested it
     SelfIdentity,
     /// Sent by server, contains the identity of whoever was specified, and gets returned to who
-    /// requested it. 
+    /// requested it.
     Identity,
     /// Sent by the client, and the broadcasted by the server to the rest of the users
     Message,
@@ -140,6 +137,7 @@ pub enum LnPkgValue {
     String(String),
     Int(ClientId),
     Bool(bool),
+    List(Vec<String>),
     Null,
 }
 
@@ -188,6 +186,7 @@ impl std::fmt::Display for LnPkgValue {
                 Self::Bool(b) => format!("{}", b),
                 Self::Int(i) => format!("{}", i),
                 Self::String(s) => s.clone(),
+                Self::List(l) => "[".to_string() + &l.join(";") + &"]".to_string(),
                 _ => "".to_string(),
             }
         )
@@ -203,6 +202,8 @@ impl LnPkgValue {
             result = LnPkgValue::Bool(boolean)
         } else if target == "" {
             result = LnPkgValue::Null;
+        } else if let Some(list) = LnPkgValue::from_string_to_list(&target) {
+            result = list;
         } else {
             // String
             result = LnPkgValue::String(target);
@@ -212,5 +213,21 @@ impl LnPkgValue {
 
     pub fn to_string(&self) -> String {
         format!("{}", self)
+    }
+
+    pub fn from_string_to_list(target: &str) -> Option<LnPkgValue> {
+        if !(target.ends_with("]") && target.starts_with("[")) {
+            return None;
+        } else {
+            let target = &target[1..target.len() - 1];
+            let segments: Vec<String> = target.split(";").map(|x| x.to_string()).collect();
+
+            if segments.len() == 1 && segments[0] == "" {
+                // Avoid passing empty lists
+                return Some(LnPkgValue::List(Vec::new()));
+            } else {
+                return Some(LnPkgValue::List(segments));
+            }
+        }
     }
 }
