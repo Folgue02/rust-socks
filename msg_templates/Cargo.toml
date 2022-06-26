@@ -7,4 +7,4 @@ description = "Message templates for rust-socks and its clients"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lnpkg = { path = "../lnpkg" }
+lnpkg = { git = "https://github.com/folgue02/lnpkg" }

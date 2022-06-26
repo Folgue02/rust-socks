@@ -7,5 +7,5 @@ description = "Basic client made for the rust-socks"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lnpkg = { path = "../lnpkg" }
+lnpkg = { git = "https://github.com/folgue02/lnpkg" }
 msg_templates = { path = "../msg_templates" }

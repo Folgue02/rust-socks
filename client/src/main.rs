@@ -1,9 +1,7 @@
-use lnpkg;
 use msg_templates;
 use std::io::{Read, Write};
 use std::{io, net, thread};
 
-mod command;
 mod syntax;
 #[cfg(test)]
 mod test; // TODO: Pass this to `/tests/` folder at the root of the project
